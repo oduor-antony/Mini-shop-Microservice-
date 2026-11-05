@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>3.5.15</version>
+		<relativePath/>
+	</parent>
+
+	<groupId>Vidat.Minishop</groupId>
+	<artifactId>Mini-Online-Shop-microservices</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<packaging>pom</packaging>
+	<name>Mini Online Shop (parent)</name>
+	<description>Parent project for the Mini Online Shop microservices</description>
+
+	<properties>
+		<java.version>21</java.version>
+		<!-- Spring Cloud 2025.0.3 is based on Spring Boot 3.5.15 -->
+		<spring-cloud.version>2025.0.3</spring-cloud.version>
+	</properties>
+
+	<modules>
+		<module>discovery-server</module>
+		<module>catalog-service</module>
+		<module>stock-service</module>
+		<!-- add order-service when you create it (milestone 5) -->
+	</modules>
+
+	<!-- Versions only. Each service declares its own dependencies. -->
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.springframework.cloud</groupId>
+				<artifactId>spring-cloud-dependencies</artifactId>
+				<version>${spring-cloud.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+</project>
