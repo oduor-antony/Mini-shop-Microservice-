@@ -6,7 +6,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.vidat.stockservice.dto.StockRequest;
 import org.vidat.stockservice.dto.StockResponse;
-import org.vidat.stockservice.models.StockItem;
 import org.vidat.stockservice.services.StockService;
 
 @RestController
@@ -30,6 +29,11 @@ public class StockItemController {
     public boolean available(@PathVariable String sku, @RequestParam Integer qty){
         return stockService.isAvailable(sku,qty);
     }
+    @PutMapping("/{sku}/reduce")
+    public ResponseEntity<StockResponse> reduce(@PathVariable String sku, @RequestParam Integer qty) {
+        return ResponseEntity.ok(stockService.reduce(sku, qty));
+    }
+
 
 
 }

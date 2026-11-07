@@ -1,5 +1,6 @@
 package org.vidat.orderservice.exceptions;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -46,10 +47,19 @@ public class GlobalExceptionHandler {
         log.error("Unexpected error", ex);
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong");
     }
+    @ExceptionHandler(InsufficientStockException.class)
+    public ResponseEntity<ErrorResponse> handleStock(InsufficientStockException ex) {
+        return build(HttpStatus.CONFLICT, ex.getMessage());
+    }
+    @ExceptionHandler(StockServiceException.class)
+    public ResponseEntity<ErrorResponse> handleStockService(StockServiceException ex) {
+        return build(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());   // 503
+    }
 
     private ResponseEntity<ErrorResponse> build(HttpStatus status, String message) {
         ErrorResponse body = new ErrorResponse(
                 Instant.now(), status.value(), status.getReasonPhrase(), message);
         return ResponseEntity.status(status).body(body);
     }
+
 }

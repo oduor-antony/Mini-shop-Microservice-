@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+//import org.vidat.orderservice.clients.StockClient;
 import org.vidat.orderservice.dtos.OrderRequest;
 import org.vidat.orderservice.dtos.OrderResponse;
 import org.vidat.orderservice.services.OrderService;
@@ -15,6 +16,7 @@ import java.util.List;
 @RequestMapping("/orders")
 public class OrderController {
     private final OrderService orderService;
+//    private final StockClient stockClient;
 
     @PostMapping
     public ResponseEntity<OrderResponse> createOrder(@RequestBody OrderRequest orderRequest){

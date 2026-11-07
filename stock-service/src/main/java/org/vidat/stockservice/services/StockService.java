@@ -1,5 +1,6 @@
 package org.vidat.stockservice.services;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.vidat.stockservice.dto.StockRequest;
@@ -31,12 +32,16 @@ public class StockService {
         return stockRepository.findBySku(sku).map(s->s.getQuantity()>=qty)
                 .orElse(false);
     }
-    public StockItem reduce(String sku, Integer qty){
-        StockItem stock=stockRepository.findBySku(sku).orElseThrow();
-        if(stock.getQuantity()>qty){
-            throw new InsufficientStockException();
+    @Transactional
+    public StockResponse reduce(String sku, Integer qty) {
+        if (qty == null || qty <= 0) {
+            throw new IllegalArgumentException("qty must be greater than 0");
         }
-        stock.setQuantity(stock.getQuantity()-qty);
-        return stockRepository.save(stock);
+        getStock(sku);                                         // unknown sku -> StockNotFoundException
+        int updated = stockRepository.reduceIfEnough(sku, qty);
+        if (updated == 0) {
+            throw new InsufficientStockException(sku, qty);    // not enough -> 409
+        }
+        return getStock(sku);
     }
 }
