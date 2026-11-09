@@ -27,7 +27,8 @@
 		<module>discovery-server</module>
 		<module>catalog-service</module>
 		<module>stock-service</module>
-		<!-- add order-service when you create it (milestone 5) -->
+		<module>order-service</module>
+		<module>api-gateway</module>
 	</modules>
 
 	<!-- Versions only. Each service declares its own dependencies. -->
