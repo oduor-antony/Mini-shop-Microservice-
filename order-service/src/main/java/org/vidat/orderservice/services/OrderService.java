@@ -15,11 +15,13 @@ import org.vidat.orderservice.repositories.OrderRepository;
 
 import java.math.BigDecimal;
 import java.util.List;
+import org.springframework.context.ApplicationEventPublisher;
+import org.vidat.orderservice.events.OrderPlacedEvent;
 
 @Service
 @RequiredArgsConstructor
 public class OrderService {
-
+    private final ApplicationEventPublisher eventPublisher;
     private final OrderRepository orderRepository;
     private final StockClient stockClient;
 
@@ -49,6 +51,7 @@ public class OrderService {
             stockClient.reduce(line.getSku(), line.getQuantity());
         }
 
+        eventPublisher.publishEvent(OrderPlacedEvent.from(saved));
         return OrderResponse.from(saved);
     }
 
