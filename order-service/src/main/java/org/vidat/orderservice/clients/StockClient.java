@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.RestClient;
 import org.vidat.orderservice.exceptions.InsufficientStockException;
 import org.vidat.orderservice.exceptions.StockServiceException;
 
@@ -15,17 +15,15 @@ import org.vidat.orderservice.exceptions.StockServiceException;
 @Component
 public class StockClient {
 
-    private static final String STOCK_SERVICE = "http://stock-service";
-
     private static final String UNAVAILABLE_MESSAGE =
             "We are currently unable to process your order because "
                     + "the stock service is temporarily unavailable. "
                     + "Please try again later.";
 
-    private final RestTemplate restTemplate;
+    private final RestClient restClient;
 
-    public StockClient(RestTemplate restTemplate) {
-        this.restTemplate = restTemplate;
+    public StockClient(RestClient.Builder builder) {
+        this.restClient = builder.baseUrl("http://stock-service").build();
     }
 
     // Read call: safe to retry. The fallback sits on @Retry so it only runs
@@ -36,19 +34,20 @@ public class StockClient {
         log.info("Calling stock-service availability for sku {}", sku);
 
         try {
-            Boolean available = restTemplate.getForObject(
-                    STOCK_SERVICE + "/stock/{sku}/available?qty={qty}",
-                    Boolean.class, sku, qty
-            );
+            Boolean available = restClient.get()
+                    .uri("/stock/{sku}/available?qty={qty}", sku, qty)
+                    .retrieve()
+                    .body(Boolean.class);
 
             return Boolean.TRUE.equals(available);
 
-        } catch (ResourceAccessException | HttpServerErrorException e) {
+        } catch (ResourceAccessException | HttpServerErrorException
+                 | IllegalStateException | IllegalArgumentException e) {
+            // IllegalState/IllegalArgument: load balancer found no instance
             throw new StockServiceException("Stock service is unavailable");
         }
     }
 
-    // Fallback for stock availability: report the outage, do not pretend "out of stock"
     public boolean isAvailableFallback(String sku, int qty, Throwable throwable) {
         log.error("Stock availability check failed for SKU {}: {}", sku, throwable.toString());
         throw new StockServiceException(UNAVAILABLE_MESSAGE);
@@ -57,12 +56,11 @@ public class StockClient {
     // Write call: not retried (a PUT that reduces stock is not idempotent)
     @CircuitBreaker(name = "stockService", fallbackMethod = "reduceFallback")
     public void reduce(String sku, int qty) {
-
         try {
-            restTemplate.put(
-                    STOCK_SERVICE + "/stock/{sku}/reduce?qty={qty}",
-                    null, sku, qty
-            );
+            restClient.put()
+                    .uri("/stock/{sku}/reduce?qty={qty}", sku, qty)
+                    .retrieve()
+                    .toBodilessEntity();
 
         } catch (HttpClientErrorException.Conflict e) {
             throw new InsufficientStockException(sku, qty);
@@ -70,12 +68,12 @@ public class StockClient {
         } catch (HttpClientErrorException.NotFound e) {
             throw new StockServiceException("Unknown sku '" + sku + "' in stock service");
 
-        } catch (ResourceAccessException | HttpServerErrorException e) {
+        } catch (ResourceAccessException | HttpServerErrorException
+                 | IllegalStateException | IllegalArgumentException e) {
             throw new StockServiceException("Stock service is unavailable");
         }
     }
 
-    // Fallback for stock reduction: keep the real 409, otherwise report the outage
     public void reduceFallback(String sku, int qty, Throwable throwable) {
         if (throwable instanceof InsufficientStockException ise) {
             throw ise;

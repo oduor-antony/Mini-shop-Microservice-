@@ -23,6 +23,15 @@
 		<spring-cloud.version>2025.0.3</spring-cloud.version>
 	</properties>
 
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>com.google.cloud.tools</groupId>
+				<artifactId>jib-maven-plugin</artifactId>
+				<version>3.4.5</version>
+			</plugin>
+		</plugins>
+	</build>
 	<modules>
 		<module>discovery-server</module>
 		<module>catalog-service</module>

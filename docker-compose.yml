@@ -1,0 +1,190 @@
+services:
+
+  # ---------------- DISCOVERY SERVER ----------------
+  discovery-server:
+    image: discovery-server:0.0.1-SNAPSHOT
+    container_name: discovery-server
+    ports:
+      - "8761:8761"
+    environment:
+      SPRING_APPLICATION_NAME: discovery-server
+      SERVER_PORT: 8761
+    networks:
+      - minishop-network
+
+  # ---------------- MONGODB ----------------
+  mongodb:
+    image: mongo:7
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - minishop-network
+
+  # ---------------- MARIADB ----------------
+  mariadb:
+    image: mariadb:11
+    container_name: mariadb
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb-data:/var/lib/mysql
+      - ./docker/mariadb/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - minishop-network
+
+  # ---------------- KAFKA ----------------
+  kafka:
+    image: apache/kafka:3.9.0
+    container_name: kafka
+    ports:
+      - "9094:9094"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 3
+    networks:
+      - minishop-network
+
+  # ---------------- ZIPKIN ----------------
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - minishop-network
+
+  # ---------------- CATALOG SERVICE ----------------
+  catalog-service:
+    image: catalog-service:0.0.1-SNAPSHOT
+    container_name: catalog-service
+    environment:
+      SPRING_APPLICATION_NAME: catalog-service
+      SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/catalog_db
+      # read by eureka.client.service-url.defaultZone=${EUREKA_SERVER_URL:...} in application.properties
+      EUREKA_SERVER_URL: http://discovery-server:8761/eureka/
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+    depends_on:
+      - mongodb
+      - discovery-server
+    networks:
+      - minishop-network
+
+  # ---------------- STOCK SERVICE ----------------
+  stock-service:
+    image: stock-service:0.0.1-SNAPSHOT
+    container_name: stock-service
+    environment:
+      SPRING_APPLICATION_NAME: stock-service
+      SPRING_DATASOURCE_URL: jdbc:mariadb://mariadb:3306/stockdb
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
+      # Spring Boot 4 name (stock-service). The Boot 3 name is kept too; the unused one is ignored.
+      MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      discovery-server:
+        condition: service_started
+    networks:
+      - minishop-network
+
+  # ---------------- ORDER SERVICE ----------------
+  order-service:
+    image: order-service:0.0.1-SNAPSHOT
+    container_name: order-service
+    environment:
+      SPRING_APPLICATION_NAME: order-service
+      SPRING_DATASOURCE_URL: jdbc:mariadb://mariadb:3306/ordertb
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+    networks:
+      - minishop-network
+
+  # ---------------- NOTIFICATION SERVICE ----------------
+  notification-service:
+    image: notification-service:0.0.1-SNAPSHOT
+    container_name: notification-service
+    environment:
+      SPRING_APPLICATION_NAME: notification-service
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+    depends_on:
+      kafka:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+    networks:
+      - minishop-network
+
+  # ---------------- API GATEWAY ----------------
+  api-gateway:
+    image: api-gateway:0.0.1-SNAPSHOT
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_APPLICATION_NAME: api-gateway
+      SERVER_PORT: 8080
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      SPRING_REACTOR_CONTEXT_PROPAGATION: auto
+    depends_on:
+      - discovery-server
+      - catalog-service
+      - stock-service
+      - order-service
+    networks:
+      - minishop-network
+
+# ---------------- NETWORKS ----------------
+networks:
+  minishop-network:
+    driver: bridge
+
+# ---------------- VOLUMES ----------------
+volumes:
+  mongodb-data:
+  mariadb-data:
