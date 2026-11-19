@@ -3,24 +3,26 @@ Mini Online Shop (Microservices)
 A small online shop built as a set of Spring Boot microservices. It is a learning project that practises the patterns used in real systems: service discovery, an API gateway, synchronous service-to-service calls with resilience, asynchronous events over Kafka, distributed tracing, and a full Docker Compose runtime.
 
 Table of contents
-Architecture
-Tech stack
-Services and ports
-Prerequisites
-Configuration and secrets
-Build and run with Docker
-Run locally from IntelliJ
-API reference
-Trying the order flow
-Testing with Postman
-How the services talk to each other
-Resilience
-Observability
-Databases
-Troubleshooting
-Project layout
-Known gaps and roadmap
-Security notes
+1. Architecture
+2. Tech stack
+3. Services and ports
+4. Prerequisites
+5. Configuration and secrets
+6. Build and run with Docker
+7. Run locally from IntelliJ
+8. API reference
+9. Trying the order flow
+10. Testing with Postman
+11. How the services talk to each other
+12. Resilience
+13. Observability
+14. Databases
+15. Troubleshooting
+16. Project layout
+17. Known gaps and roadmap
+18. Security notes
+
+
 1. Architecture
                          +------------------+
    Client / Postman ---> |   api-gateway    |  :8080 (only public entry point)
@@ -61,7 +63,9 @@ Messaging	Apache Kafka
 Data	MongoDB 7, MariaDB 11, Spring Data JPA / MongoDB
 Tracing	Micrometer Tracing + Zipkin
 Containers	Docker, Docker Compose, Jib (image build, no Dockerfiles)
+
 3. Services and ports
+
 Service	Role	Port on host	Notes
 api-gateway	Single entry point, routing	8080	Routes below
 discovery-server	Eureka registry + dashboard	8761	http://localhost:8761
@@ -284,18 +288,18 @@ powershell
 Data persists in the Docker volumes mariadb-data and mongodb-data. docker compose down -v wipes them.
 
 15. Troubleshooting
-Symptom	Likely cause	Fix
-dockerDesktopLinuxEngine pipe not found	Docker Desktop not running	Start it; wait for docker info to succeed
-Compose: variable DB_PASSWORD is not set	Missing .env	Create .env (section 5)
-Service missing in Eureka	Still starting, or wrong Eureka URL	Wait 1 to 2 min; check docker compose logs <svc> for localhost:8761
-catalog-service registers at localhost:8761	Env var did not bind to the map property	Use the ${EUREKA_SERVER_URL:...} placeholder in its properties and rebuild the image
-503 right after start	Registry lag	Wait about 60 s and retry
-409 Not enough stock for a valid SKU	stock table empty or low	Seed stock (section 14)
-404 on /products	Wrong path	Use /api/products
-1-span traces in Zipkin	Trace propagation missing	Ensure custom RestClient.Builder sets .observationRegistry(...); gateway has SPRING_REACTOR_CONTEXT_PROPAGATION=auto
-Changes not visible after restart	Old image still used	Rebuild with jib:dockerBuild, then --force-recreate
-Jib or Docker errors after wsl --shutdown	Engine not up, bad .wslconfig	Restart Docker Desktop; inspect type "$env:USERPROFILE\.wslconfig"
-Postman "could not get response"	Web Postman cannot see localhost	Use desktop app or Desktop Agent
+ Symptom	Likely cause	Fix
+ dockerDesktopLinuxEngine pipe not found	Docker Desktop not running	Start it; wait for docker info to succeed
+ Compose: variable DB_PASSWORD is not set	Missing .env	Create .env (section 5)
+ Service missing in Eureka	Still starting, or wrong Eureka URL	Wait 1 to 2 min; check docker compose logs <svc> for localhost:8761
+ catalog-service registers at localhost:8761	Env var did not bind to the map property	Use the ${EUREKA_SERVER_URL:...} placeholder in its properties and rebuild the image
+ 503 right after start	Registry lag	Wait about 60 s and retry
+ 409 Not enough stock for a valid SKU	stock table empty or low	Seed stock (section 14)
+ 404 on /products	Wrong path	Use /api/products
+ 1-span traces in Zipkin	Trace propagation missing	Ensure custom RestClient.Builder sets .observationRegistry(...); gateway has SPRING_REACTOR_CONTEXT_PROPAGATION=auto
+ Changes not visible after restart	Old image still used	Rebuild with jib:dockerBuild, then --force-recreate
+ Jib or Docker errors after wsl --shutdown	Engine not up, bad .wslconfig	Restart Docker Desktop; inspect type "$env:USERPROFILE\.wslconfig"
+ Postman "could not get response"	Web Postman cannot see localhost	Use desktop app or Desktop Agent
 16. Project layout
 mini-online-shop/
 ├── pom.xml                  parent POM (modules)
@@ -311,18 +315,18 @@ mini-online-shop/
 ├── order-service/           orders, StockClient (RestClient), Kafka producer
 └── notification-service/    Kafka consumer
 17. Known gaps and roadmap
-[ ] Order unitPrice and total are 0: wire prices from catalog (GET /api/products/{sku} plus a CatalogClient using RestClient)
-[ ] Fix the stock check-then-act race (atomic update or @Version)
-[ ] Confirm end-to-end Zipkin traces for every hop
-[ ] Rebuild catalog-service with the Eureka placeholder property
-[ ] Remove DEBUG logging from catalog-service
-[ ] Add .env.example and push the cleaned git history
-[ ] Remove the stray stock-service/api-gateway folder
-[ ] Evidence for circuit breaker open/close behaviour (milestone 9.9)
-[ ] Tracing properties for all services (milestone 10.3)
-[ ] Authentication (JWT at the gateway), validation, pagination
-[ ] Integration tests with Testcontainers
-[ ] CI pipeline (build, test, image)
+ Order unitPrice and total are 0: wire prices from catalog (GET /api/products/{sku} plus a CatalogClient using RestClient)
+  Fix the stock check-then-act race (atomic update or @Version)
+  Confirm end-to-end Zipkin traces for every hop
+  Rebuild catalog-service with the Eureka placeholder property
+  Remove DEBUG logging from catalog-service
+  Add .env.example and push the cleaned git history
+  Remove the stray stock-service/api-gateway folder
+  Evidence for circuit breaker open/close behaviour (milestone 9.9)
+  Tracing properties for all services (milestone 10.3)
+  Authentication (JWT at the gateway), validation, pagination
+  Integration tests with Testcontainers
+  CI pipeline (build, test, image)
 18. Security notes
 Never commit .env or any password. If one is committed by mistake: git rm --cached .env, add .env to .gitignore, and amend or rewrite the commit before pushing. If it was already pushed, rotate the password.
 The stack runs MariaDB as root for convenience. For anything beyond local learning, create a dedicated user per service with minimal privileges.
